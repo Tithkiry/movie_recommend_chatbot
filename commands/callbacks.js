@@ -2,7 +2,8 @@ const {
     searchMovie,
     getMoviesByGenre,
     getTrendingMovies,
-    getGenres
+    getGenres,
+    getMovieTrailer
 } = require('../services/tmdb');
 
 const {
@@ -126,17 +127,39 @@ module.exports = (bot) => {
         }
 
         const movie = movies[0];
-
         const poster = movie.poster_path
             ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
             : null;
+        const trailer = await getMovieTrailer(movie.id);
+
+        let caption = movieCard(movie);
+        if (trailer) {
+            caption += `\n🎥 [Watch Trailer](${trailer})`;
+}
+
+//         if (poster) {
+//             return bot.sendPhoto(
+//                 chatId,
+//                 poster,
+//                 {
+//                     caption: movieCard(movie),
+//                     parse_mode: "Markdown"
+//                 }
+//             );
+//         }
+
+//         return bot.sendMessage(
+//             chatId,
+//             movieCard(movie),
+//             { parse_mode: "Markdown" }
+//         );
 
         if (poster) {
             return bot.sendPhoto(
                 chatId,
                 poster,
                 {
-                    caption: movieCard(movie),
+                    caption,
                     parse_mode: "Markdown"
                 }
             );
@@ -144,9 +167,13 @@ module.exports = (bot) => {
 
         return bot.sendMessage(
             chatId,
-            movieCard(movie),
-            { parse_mode: "Markdown" }
+            caption,
+            {
+                parse_mode: "Markdown"
+            }
         );
     });
+    
 
 };
+

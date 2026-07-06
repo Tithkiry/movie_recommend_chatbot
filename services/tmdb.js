@@ -80,9 +80,49 @@ async function getGenres() {
     return res.data.genres;
 }
 
+// Get movie's trailer
+async function getMovieTrailer(movieId) {
+    try {
+        const response = await axios.get(
+            `${BASE_URL}/movie/${movieId}/videos`,
+            {
+                params: {
+                    api_key: process.env.TMDB_API_KEY
+                }
+            }
+        );
+
+        const videos = response.data.results;
+
+        // Find official YouTube trailer first
+        const trailer = videos.find(v =>
+            v.site === "YouTube" &&
+            v.type === "Trailer" &&
+            v.official === true
+        );
+
+        // If no official trailer, use any trailer
+        const fallback = videos.find(v =>
+            v.site === "YouTube" &&
+            v.type === "Trailer"
+        );
+
+        const selected = trailer || fallback;
+
+        return selected
+            ? `https://www.youtube.com/watch?v=${selected.key}`
+            : null;
+
+    } catch (err) {
+        console.error(err);
+        return null;
+    }
+}
+
 module.exports = {
     searchMovie,
     getMoviesByGenre,
     getTrendingMovies,
-    getGenres
+    getGenres,
+    getMovieTrailer
 };
