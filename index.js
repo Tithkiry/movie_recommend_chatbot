@@ -1,7 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
-const TelegramBot = require("node-telegram-bot-api").default;
+const TelegramBot = require("node-telegram-bot-api");
 
 const { PORT, BOT_TOKEN } = require("./config/constants");
 
