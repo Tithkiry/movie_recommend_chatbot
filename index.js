@@ -1,25 +1,38 @@
-require('dotenv').config();
+require("dotenv").config();
 
-const express = require('express');
-const TelegramBot = require('node-telegram-bot-api').default;
+const express = require("express");
+const TelegramBot = require("node-telegram-bot-api").default;
+
+const { PORT, BOT_TOKEN } = require("./config/constants");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-app.get('/', (req, res) => {
-    res.send('MovieBot running');
+app.get("/", (req, res) => {
+    res.send("🎬 MovieBot is running.");
 });
 
 app.listen(PORT, () => {
-    console.log(`Server listening on ${PORT}`);
+    console.log(`Server listening on port ${PORT}`);
 });
 
-const bot = new TelegramBot(
-    process.env.BOT_TOKEN,
-    { polling: true }
-);
+const bot = new TelegramBot(BOT_TOKEN, {
+    polling: true
+});
 
-console.log("🎬 MovieBot is running...");
+console.log("🎬 MovieBot started successfully.");
 
-require('./commands/start')(bot);
-require('./commands/callbacks')(bot);
+require("./commands/start")(bot);
+require("./commands/callbacks")(bot);
+require("./commands/messages")(bot);
+
+process.on("SIGINT", () => {
+    console.log("Stopping bot...");
+    bot.stopPolling();
+    process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+    console.log("Stopping bot...");
+    bot.stopPolling();
+    process.exit(0);
+});

@@ -1,179 +1,237 @@
 const {
-    searchMovie,
-    getMoviesByGenre,
-    getTrendingMovies,
-    getGenres,
-    getMovieTrailer
-} = require('../services/tmdb');
+  getMovieDetails,
+  getMovieTrailer,
+  getSimilarMovies,
+  getGenres,
+  getMoviesByGenre,
+  getTrendingMovies,
+  getTopRatedMovies,
+  getUpcomingMovies,
+  getPopularMovies,
+} = require("../services/tmdb");
+
+const { movieCaption } = require("../utils/formatter");
+const {
+  genresKeyboard,
+  movieKeyboard,
+  movieListKeyboard,
+  
+} = require("../utils/keyboards");
+
+const { clearState, setState } = require("../state/userState");
+
+const { showMainMenu } = require("./start");
 
 const {
-    movieCard
-} = require('../utils/formatter');
+  IMAGE_BASE_URL,
+  SEARCH_RESULTS_LIMIT,
+  SIMILAR_RESULTS_LIMIT,
+} = require("../config/constants");
 
-// Search movie
-const userState = {}; 
+// ==============================
+// Send Single Movie Details
+// ==============================
 
-module.exports = (bot) => {
+async function sendMovieDetails(bot, chatId, movieId) {
+  try {
+    const movie = await getMovieDetails(movieId);
 
-    // Handle button clicks
-    bot.on('callback_query', async (query) => {
+    if (!movie) {
+      return bot.sendMessage(chatId, "❌ Movie details unavailable.");
+    }
 
-        const chatId = query.message.chat.id;
-        const data = query.data;
+    const trailer = await getMovieTrailer(movieId);
 
-        bot.answerCallbackQuery(query.id);
+    const poster = movie.poster_path
+      ? `${IMAGE_BASE_URL}${movie.poster_path}`
+      : null;
 
-        // ───────────────────────
-        // SEARCH MODE
-        // ───────────────────────
-        if (data === "search") {
+    const options = {
+      parse_mode: "HTML",
+      reply_markup: movieKeyboard(movieId, trailer),
+    };
 
-            userState[chatId] = "searching";
+    if (poster) {
+      return bot.sendPhoto(chatId, poster, {
+        caption: movieCaption(movie),
+        ...options,
+      });
+    }
 
-            return bot.sendMessage(
-                chatId,
-                "🔍 Send a movie name:"
-            );
-        }
+    return bot.sendMessage(chatId, movieCaption(movie), options);
+  } catch (error) {
+    console.error("Movie details error:", error);
 
-        // ───────────────────────
-        // GENRES MENU (DYNAMIC)
-        // ───────────────────────
-        if (data === "genres") {
-
-            const genres = await getGenres();
-
-            const buttons = [];
-
-            for (let i = 0; i < genres.length; i += 2) {
-
-                buttons.push(
-                    genres.slice(i, i + 2).map(g => ({
-                        text: `🎬 ${g.name}`,
-                        callback_data: `g_${g.id}`
-                    }))
-                );
-            }
-
-            return bot.sendMessage(
-                chatId,
-                "🎭 Choose a genre:",
-                {
-                    reply_markup: {
-                        inline_keyboard: buttons
-                    }
-                }
-            );
-        }
-
-        // ───────────────────────
-        // GENRE RESULTS
-        // ───────────────────────
-        if (data.startsWith("g_")) {
-
-            const genreId = data.split("_")[1];
-
-            const movies =
-                await getMoviesByGenre(genreId);
-
-            let text = "🎬 *Top Movies*\n\n";
-
-            movies.slice(0, 5).forEach((m, i) => {
-                text += `${i + 1}. 🎬 ${m.title}\n⭐ ${m.vote_average}/10\n\n`;
-            });
-
-            return bot.sendMessage(chatId, text, {
-                parse_mode: "Markdown"
-            });
-        }
-
-        // ───────────────────────
-        // TRENDING
-        // ───────────────────────
-        if (data === "trending") {
-
-            const movies = await getTrendingMovies();
-
-            let text = "🔥 *Trending Movies*\n\n";
-
-            movies.slice(0, 5).forEach((m, i) => {
-                text += `${i + 1}. 🎬 ${m.title}\n⭐ ${m.vote_average}/10\n\n`;
-            });
-
-            return bot.sendMessage(chatId, text, {
-                parse_mode: "Markdown"
-            });
-        }
-    });
-
-    // ─────────────────────────────
-    // TEXT HANDLER (SEARCH INPUT)
-    // ─────────────────────────────
-    bot.on("message", async (msg) => {
-
-        const chatId = msg.chat.id;
-        const text = msg.text;
-
-        if (!text || text.startsWith("/")) return;
-
-        if (userState[chatId] !== "searching") return;
-
-        userState[chatId] = null;
-
-        const movies = await searchMovie(text);
-
-        if (!movies.length) {
-            return bot.sendMessage(chatId, "❌ Movie not found");
-        }
-
-        const movie = movies[0];
-        const poster = movie.poster_path
-            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-            : null;
-        const trailer = await getMovieTrailer(movie.id);
-
-        let caption = movieCard(movie);
-        if (trailer) {
-            caption += `\n🎥 [Watch Trailer](${trailer})`;
+    return bot.sendMessage(chatId, "⚠️ Unable to load movie details.");
+  }
 }
 
-//         if (poster) {
-//             return bot.sendPhoto(
-//                 chatId,
-//                 poster,
-//                 {
-//                     caption: movieCard(movie),
-//                     parse_mode: "Markdown"
-//                 }
-//             );
-//         }
+// ==============================
+// Send Movie List
+// ==============================
 
-//         return bot.sendMessage(
-//             chatId,
-//             movieCard(movie),
-//             { parse_mode: "Markdown" }
-//         );
+async function sendMovieList(
+  bot,
+  chatId,
+  movies,
+  title,
+  limit = SEARCH_RESULTS_LIMIT,
+) {
+  if (!movies || !movies.length) {
+    return bot.sendMessage(chatId, "❌ No movies found.");
+  }
 
-        if (poster) {
-            return bot.sendPhoto(
-                chatId,
-                poster,
-                {
-                    caption,
-                    parse_mode: "Markdown"
-                }
-            );
+  const filteredMovies = movies.slice(0, limit);
+
+  return bot.sendMessage(chatId, title, {
+    reply_markup: movieListKeyboard(filteredMovies),
+  });
+}
+
+// ==============================
+// Callback Handler
+// ==============================
+
+module.exports = (bot) => {
+  bot.on("callback_query", async (query) => {
+    const chatId = query.message.chat.id;
+    const data = query.data;
+
+    try {
+      // Remove Telegram loading animation
+      await bot.answerCallbackQuery(query.id);
+
+      // ======================
+      // HOME BUTTON
+      // ======================
+
+      if (data === "home") {
+        clearState(chatId);
+
+        return showMainMenu(bot, chatId);
+      }
+
+      // ======================
+      // SEARCH MOVIE
+      // ======================
+
+      if (data === "search") {
+        setState(chatId, "searching");
+
+        return bot.sendMessage(chatId, "🔍 Send me a movie name:");
+      }
+
+      // ======================
+      // TOP RATED
+      // ======================
+
+      if (data === "top_rated") {
+        const movies = await getTopRatedMovies();
+
+        return sendMovieList(bot, chatId, movies, "🏆 Top Rated Movies:");
+      }
+
+      // ======================
+      // UPCOMING
+      // ======================
+
+      if (data === "upcoming") {
+        const movies = await getUpcomingMovies();
+
+        return sendMovieList(bot, chatId, movies, "🆕 Upcoming Movies:");
+      }
+
+      // ======================
+      // RANDOM MOVIE
+      // ======================
+
+      if (data === "random") {
+        const movies = await getPopularMovies();
+
+        if (!movies || !movies.length) {
+          return bot.sendMessage(chatId, "❌ Unable to find a movie.");
         }
 
-        return bot.sendMessage(
-            chatId,
-            caption,
-            {
-                parse_mode: "Markdown"
-            }
+        const randomMovie = movies[Math.floor(Math.random() * movies.length)];
+
+        return sendMovieDetails(bot, chatId, randomMovie.id);
+      }
+
+      // ======================
+      // MOVIE SELECTED
+      // ======================
+
+      if (data.startsWith("movie_")) {
+        const movieId = data.split("_")[1];
+
+        clearState(chatId);
+
+        return sendMovieDetails(bot, chatId, movieId);
+      }
+
+      // ======================
+      // SIMILAR MOVIES
+      // ======================
+
+      if (data.startsWith("similar_")) {
+        const movieId = data.split("_")[1];
+
+        const movies = await getSimilarMovies(movieId);
+
+        return sendMovieList(
+          bot,
+          chatId,
+          movies,
+          "🎯 Similar Movies:",
+          SIMILAR_RESULTS_LIMIT,
         );
-    });
-    
+      }
 
+      // ======================
+      // GENRE MENU
+      // ======================
+
+      if (data === "genres") {
+        const genres = await getGenres();
+
+        if (!genres || !genres.length) {
+          return bot.sendMessage(chatId, "❌ No genres available.");
+        }
+
+        return bot.sendMessage(chatId, "🎭 Choose a genre:", {
+          reply_markup: genresKeyboard(genres),
+        });
+      }
+
+      // ======================
+      // GENRE SELECTED
+      // ======================
+
+      if (data.startsWith("genre_")) {
+        const genreId = data.split("_")[1];
+
+        const movies = await getMoviesByGenre(genreId);
+
+        return sendMovieList(bot, chatId, movies, "🎬 Movies:");
+      }
+
+      // ======================
+      // TRENDING
+      // ======================
+
+      if (data === "trending") {
+        const movies = await getTrendingMovies();
+
+        return sendMovieList(bot, chatId, movies, "🔥 Trending Movies:");
+      }
+      
+    } catch (error) {
+      console.error("Callback error:", error);
+
+      await bot.sendMessage(
+        chatId,
+        "⚠️ Something went wrong. Please try again later.",
+      );
+    }
+  });
 };
-

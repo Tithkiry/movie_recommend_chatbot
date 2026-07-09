@@ -1,0 +1,130 @@
+function mainMenuKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: "🔍 Search Movie",
+          callback_data: "search",
+        },
+      ],
+
+      [
+        {
+          text: "🎭 Browse Genres",
+          callback_data: "genres",
+        },
+      ],
+
+      [
+        {
+          text: "🔥 Trending Movies",
+          callback_data: "trending",
+        },
+      ],
+
+      [
+        {
+          text: "🏆 Top Rated",
+          callback_data: "top_rated",
+        },
+      ],
+
+      [
+        {
+          text: "🆕 Upcoming",
+          callback_data: "upcoming",
+        },
+      ],
+    ],
+  };
+}
+
+/**
+ * Search results
+ */
+function searchResultsKeyboard(movies) {
+  return {
+    inline_keyboard: movies.map((movie) => [
+      {
+        text: `${movie.title} (${movie.release_date?.slice(0, 4) || "N/A"})`,
+        callback_data: `movie_${movie.id}`,
+      },
+    ]),
+  };
+}
+
+/**
+ * Genres
+ */
+function genresKeyboard(genres) {
+  const keyboard = [];
+
+  for (let i = 0; i < genres.length; i += 2) {
+    keyboard.push(
+      genres.slice(i, i + 2).map((genre) => ({
+        text: genre.name,
+        callback_data: `genre_${genre.id}`,
+      })),
+    );
+  }
+
+  return {
+    inline_keyboard: keyboard,
+  };
+}
+
+/**
+ * Movie Details
+ */
+function movieKeyboard(movieId, trailer) {
+  const rows = [];
+
+  if (trailer) {
+    rows.push([
+      {
+        text: "🎥 Watch Trailer",
+        url: trailer,
+      },
+    ]);
+  }
+
+  rows.push([
+    {
+      text: "🎯 Similar Movies",
+      callback_data: `similar_${movieId}`,
+    },
+  ]);
+
+  rows.push([
+    {
+      text: "🏠 Main Menu",
+      callback_data: "home",
+    },
+  ]);
+
+  return {
+    inline_keyboard: rows,
+  };
+}
+
+/**
+ * Generic movie list
+ */
+function movieListKeyboard(movies) {
+  return {
+    inline_keyboard: movies.map((movie) => [
+      {
+        text: movie.title,
+        callback_data: `movie_${movie.id}`,
+      },
+    ]),
+  };
+}
+
+module.exports = {
+  mainMenuKeyboard,
+  searchResultsKeyboard,
+  genresKeyboard,
+  movieKeyboard,
+  movieListKeyboard,
+};

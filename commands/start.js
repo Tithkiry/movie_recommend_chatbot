@@ -1,36 +1,46 @@
+const {
+    mainMenuKeyboard
+} = require("../utils/keyboards");
+
+/**
+ * Displays the bot's main menu.
+ */
+async function showMainMenu(bot, chatId, firstName = "") {
+
+    const greeting = firstName
+        ? `Hi ${firstName}! 👋`
+        : "Welcome! 👋";
+
+    await bot.sendMessage(
+        chatId,
+`
+🎬 <b>MovieBot</b>
+
+${greeting}
+
+I can help you discover movies.
+
+Choose one of the options below.
+`,
+        {
+            parse_mode: "HTML",
+            reply_markup: mainMenuKeyboard()
+        }
+    );
+}
+
 module.exports = (bot) => {
 
-    bot.onText(/\/start/, (msg) => {
+    bot.onText(/^\/start$/, async (msg) => {
 
-        bot.sendMessage(
+        await showMainMenu(
+            bot,
             msg.chat.id,
-            "🎬 *Welcome to MovieBot*\nChoose an option:",
-            {
-                parse_mode: "Markdown",
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: "🔍 Search Movie",
-                                callback_data: "search"
-                            }
-                        ],
-                        [
-                            {
-                                text: "🎭 Browse Genres",
-                                callback_data: "genres"
-                            }
-                        ],
-                        [
-                            {
-                                text: "🔥 Trending Movies",
-                                callback_data: "trending"
-                            }
-                        ]
-                    ]
-                }
-            }
+            msg.from.first_name
         );
+
     });
 
 };
+
+module.exports.showMainMenu = showMainMenu;
